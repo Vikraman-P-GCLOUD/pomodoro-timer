@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pomodoro Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4f1ea;
+    --ink: #1a1a1a;
+    --muted: #6b665c;
+    --rule: #1a1a1a;
+    --red: #d6402b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+  main { width: 100%; max-width: 520px; }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 2px solid var(--rule);
+    padding-bottom: 10px;
+  }
+  h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .count { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); }
+
+  nav { display: flex; border-bottom: 1px solid var(--rule); }
+  nav button {
+    flex: 1;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--rule);
+    padding: 12px 0;
+    font: 400 13px "IBM Plex Sans", sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  nav button:last-child { border-right: none; }
+  nav button.on { color: var(--ink); font-weight: 600; background: var(--ink); color: var(--paper); }
+  nav button:not(.on):hover { color: var(--ink); }
+
+  .clock {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: clamp(88px, 26vw, 144px);
+    line-height: 1;
+    text-align: center;
+    padding: 48px 0 28px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .clock.running .colon { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+
+  .bar { height: 4px; background: #ddd8cc; margin-bottom: 32px; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--red); transition: width 0.3s linear; }
+
+  .controls { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+  .controls button {
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    padding: 14px 0;
+    font: 600 14px "IBM Plex Sans", sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .controls button:hover { background: var(--ink); color: var(--paper); }
+  .controls #start { background: var(--red); border-color: var(--red); color: #fff; }
+  .controls #start:hover { background: var(--ink); border-color: var(--ink); }
+
+  section.settings {
+    margin-top: 40px;
+    border-top: 2px solid var(--rule);
+    padding-top: 14px;
+  }
+  .settings h2 {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  label { font-size: 12px; color: var(--muted); display: block; }
+  input[type=number] {
+    width: 100%;
+    margin-top: 4px;
+    border: 1px solid var(--ink);
+    background: transparent;
+    padding: 8px;
+    font: 400 15px "IBM Plex Mono", monospace;
+    color: var(--ink);
+  }
+  input[type=number]:focus { outline: 2px solid var(--red); outline-offset: -1px; }
+  .check { margin-top: 14px; display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink); }
+  .check input { accent-color: var(--red); }
+
+  footer { margin-top: 32px; font-size: 12px; color: var(--muted); }
+  kbd { font-family: "IBM Plex Mono", monospace; border: 1px solid var(--muted); padding: 0 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Pomodoro</h1>
+    <span class="count" id="count">Sessions done: 0</span>
+  </header>
+
+  <nav>
+    <button data-mode="focus" class="on">Focus</button>
+    <button data-mode="short">Short break</button>
+    <button data-mode="long">Long break</button>
+  </nav>
+
+  <div class="clock" id="clock"><span id="mm">25</span><span class="colon">:</span><span id="ss">00</span></div>
+  <div class="bar"><span id="bar"></span></div>
+
+  <div class="controls">
+    <button id="start">Start</button>
+    <button id="reset">Reset</button>
+    <button id="skip">Skip</button>
+  </div>
+
+  <section class="settings">
+    <h2>Minutes</h2>
+    <div class="row">
+      <label>Focus<input type="number" id="t-focus" min="1" max="120" value="25"></label>
+      <label>Short break<input type="number" id="t-short" min="1" max="60" value="5"></label>
+      <label>Long break<input type="number" id="t-long" min="1" max="60" value="15"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="auto" checked> Start the next block automatically</label>
+  </section>
+
+  <footer><kbd>Space</kbd> start / pause &nbsp; <kbd>R</kbd> reset &nbsp; Long break every 4 focus sessions.</footer>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const durations = () => ({
+    focus: Math.max(1, +$('t-focus').value || 25) * 60,
+    short: Math.max(1, +$('t-short').value || 5) * 60,
+    long:  Math.max(1, +$('t-long').value || 15) * 60,
+  });
+
+  let mode = 'focus';
+  let total = durations().focus;
+  let left = total;
+  let endAt = null;
+  let tick = null;
+  let done = 0;
+
+  try {
+    const s = JSON.parse(localStorage.getItem('pomo') || '{}');
+    if (s.focus) $('t-focus').value = s.focus;
+    if (s.short) $('t-short').value = s.short;
+    if (s.long) $('t-long').value = s.long;
+    if (typeof s.auto === 'boolean') $('auto').checked = s.auto;
+    total = left = durations()[mode];
+  } catch (e) {}
+
+  function save() {
+    try {
+      localStorage.setItem('pomo', JSON.stringify({
+        focus: $('t-focus').value, short: $('t-short').value,
+        long: $('t-long').value, auto: $('auto').checked
+      }));
+    } catch (e) {}
+  }
+
+  function render() {
+    const m = Math.floor(left / 60), s = left % 60;
+    $('mm').textContent = String(m).padStart(2, '0');
+    $('ss').textContent = String(s).padStart(2, '0');
+    $('bar').style.width = ((total - left) / total * 100) + '%';
+    const label = { focus: 'Focus', short: 'Break', long: 'Long break' }[mode];
+    document.title = `${$('mm').textContent}:${$('ss').textContent} · ${label}`;
+    $('clock').classList.toggle('running', !!tick);
+    $('start').textContent = tick ? 'Pause' : (left < total ? 'Resume' : 'Start');
+    $('count').textContent = 'Sessions done: ' + done;
+  }
+
+  function beep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.25, 0.5].forEach(t => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880; o.type = 'square';
+        g.gain.setValueAtTime(0.08, ctx.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.18);
+        o.connect(g).connect(ctx.destination);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.2);
+      });
+    } catch (e) {}
+  }
+
+  function start() {
+    if (tick) return;
+    endAt = Date.now() + left * 1000;
+    tick = setInterval(() => {
+      left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+      if (left === 0) finish();
+      render();
+    }, 250);
+    render();
+  }
+  function pause() { clearInterval(tick); tick = null; render(); }
+
+  function setMode(m, autoStart) {
+    pause();
+    mode = m;
+    total = left = durations()[m];
+    document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    render();
+    if (autoStart) start();
+  }
+
+  function next() {
+    if (mode === 'focus') {
+      done++;
+      return done % 4 === 0 ? 'long' : 'short';
+    }
+    return 'focus';
+  }
+
+  function finish() {
+    pause();
+    beep();
+    setMode(next(), $('auto').checked);
+  }
+
+  $('start').onclick = () => tick ? pause() : start();
+  $('reset').onclick = () => setMode(mode, false);
+  $('skip').onclick = () => setMode(next(), false);
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => setMode(b.dataset.mode, false));
+  ['t-focus', 't-short', 't-long'].forEach(id => $(id).addEventListener('change', () => {
+    save();
+    if (!tick && left === total) setMode(mode, false);
+  }));
+  $('auto').addEventListener('change', save);
+
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); tick ? pause() : start(); }
+    if (e.key === 'r' || e.key === 'R') setMode(mode, false);
+  });
+
+  render();
+</script>
+</body>
+</html>
